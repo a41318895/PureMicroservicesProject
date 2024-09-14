@@ -1,0 +1,160 @@
+services:
+  company-ms:
+    container_name: company-service
+    image: a41318895/company-ms:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - microservice-network
+      - postgres
+    restart: unless-stopped
+    depends_on:
+      - eureka
+      - config-server
+
+  job-ms:
+    container_name: job-service
+    image: a41318895/job-ms:latest
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - microservice-network
+      - postgres
+    restart: unless-stopped
+    depends_on:
+      - eureka
+      - config-server
+
+  review-ms:
+    container_name: review-service
+    image: a41318895/review-ms:latest
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - microservice-network
+      - postgres
+    restart: unless-stopped
+    depends_on:
+      - eureka
+      - config-server
+
+  eureka:
+    container_name: eureka
+    image: a41318895/service-registry-ms:latest
+    ports:
+      - "8761:8761"
+    networks:
+      - microservice-network
+      - postgres
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - zipkin
+      - postgres
+      - pgadmin
+
+  config-server:
+    container_name: config-server
+    image: a41318895/config-server-ms:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - microservice-network
+      - postgres
+    restart: unless-stopped
+    depends_on:
+      - eureka
+
+  postgres:
+    container_name: postgres
+    image: postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /data/postgres
+    volumes:
+      - ./postgres:/data/postgres
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - postgres
+    restart: unless-stopped
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    env_file:
+      - .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - ./pgadmin:/var/lib/pgadmin
+      - ./servers.json:/pgadmin4/servers.json
+      - ./.pgpass:/pgpass
+    ports:
+      - "5050:80"
+    networks:
+      - postgres
+    restart: unless-stopped
+
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - microservice-network
+      - postgres
+    restart: unless-stopped
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - microservice-network
+      - postgres
+    restart: unless-stopped
+
+  gateway:
+    container_name: gateway
+    image: a41318895/gateway-ms:latest
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - microservice-network
+      - postgres
+    depends_on:
+      - eureka
+
+networks:
+  microservice-network:
+    driver: bridge
+  postgres:
+    driver: bridge
+
+volumes:
+  postgres:
+  pgadmin:
